@@ -1,0 +1,119 @@
+/*
+    MIT License
+
+    Copyright (c) 2016-2021, Alexey Dynda
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+*/
+/**
+ *   Attiny85 PINS
+ *             ____
+ *   RESET   -|_|  |- 3V
+ *   SCL (3) -|    |- (2)
+ *   SDA (4) -|    |- (1)
+ *   GND     -|____|- (0)
+ *
+ *   Atmega328 PINS: connect LCD to A4/A5
+ */
+ #include "lcdgfx.h"
+#include <Wire.h>
+#include "SHTSensor.h"
+#include <FastLED.h>
+
+
+// === LED WS2811 ===
+#define LED_PIN 4
+#define NUM_LEDS 21
+#define BRIGHTNESS 64
+#define LED_TYPE WS2811
+#define COLOR_ORDER GRB
+CRGB leds[NUM_LEDS];
+
+#define UPDATES_PER_SECOND 100
+
+// === Capteurs & écran ===
+SHTSensor sht;
+DisplaySSD1306_128x64_I2C display(-1); // -1 = pas de pin reset
+
+void setup() {
+Serial.begin(115200);
+Wire.begin();
+
+// Initialisation capteur
+if (!sht.init()) {
+Serial.println("Erreur capteur SHT");
+while (true);
+}
+sht.setAccuracy(SHTSensor::SHT_ACCURACY_MEDIUM); // SHT3x
+
+Serial.println("Temperature:,Humidity:");
+
+// Initialisation écran
+display.begin();
+display.clear();
+display.setFixedFont(ssd1306xled_font6x8);
+
+// Initialisation LEDs
+FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+FastLED.setBrightness(BRIGHTNESS);
+}
+/*void HMI_display_clock(){
+  char timestring[9];
+  Serial.println(timestring);
+  Serial1.print(F("t1.txt=\""));
+  Serial1.print(timestring);
+  Serial1.print("\"");
+  Serial1.write(0xff);
+  Serial1.write(0xff);
+  Serial1.write(0xff);
+  sprintf(timestring, "%02d:%02d:%02d ", clock.hour, clock.minute, clock.second);
+}*/
+void loop() {
+// Lecture des données capteur
+sht.readSample();
+float temperature = sht.getTemperature();
+float humidity = sht.getHumidity();
+
+
+// Affichage Serial
+Serial.print("Temp: ");
+Serial.print(temperature);
+Serial.print(" °C | Hum: ");
+Serial.println(humidity);
+
+
+// Affichage OLED
+display.clear();
+char ligne1[32];
+char ligne2[32];
+snprintf(ligne1, sizeof(ligne1), "Temperature: %02d C", (int)temperature);
+snprintf(ligne2, sizeof(ligne2), "Humidite: %02d %%",(int) humidity);
+
+
+display.printFixed(0, 10, ligne1, STYLE_BOLD);
+display.printFixed(0, 25, ligne2, STYLE_BOLD);
+
+// LEDs RGB animées selon la température
+uint8_t couleur = map(temperature, 20, 35, 170, 0);
+fill_solid(leds, NUM_LEDS, ColorFromPalette(RainbowColors_p, couleur, BRIGHTNESS, LINEARBLEND));
+FastLED.show();
+
+delay(1000);
+}
+
