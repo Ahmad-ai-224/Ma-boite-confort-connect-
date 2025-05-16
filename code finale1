@@ -1,0 +1,112 @@
+#include "lcdgfx.h"
+#include <Wire.h>
+#include "SHTSensor.h"
+#include <FastLED.h>
+#include <Servo.h>
+
+// === Définition des constantes ===
+#define LED_PIN     4
+#define NUM_LEDS    21
+#define BRIGHTNESS  64
+#define COLOR_ORDER GRB
+#define LED_TYPE    WS2811
+#define PIR_PIN     A3
+#define PIR_VCC     A2
+#define SERVO_PIN   A1
+
+// === Objets ===
+CRGB leds[NUM_LEDS];
+SHTSensor sht;
+DisplaySSD1306_128x64_I2C display(-1);
+Servo myservo;
+
+void setColor(int redValue, int greenValue, int blueValue) {
+  fill_solid(leds, NUM_LEDS, CRGB(redValue, greenValue, blueValue));
+  FastLED.show();
+}
+
+void showClock(unsigned long ms) {
+  unsigned long totalSeconds = ms / 1000;
+  int hours = (totalSeconds / 3600) % 24;
+  int minutes = (totalSeconds / 60) % 60;
+  int seconds = totalSeconds % 60;
+
+  char buffer[32];
+  snprintf(buffer, sizeof(buffer), "Heure: %02d:%02d:%02d", hours, minutes, seconds);
+  display.printFixed(0, 40, buffer, STYLE_BOLD);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+
+  if (!sht.init()) {
+    Serial.println("Erreur capteur SHT");
+    while (1);
+  }
+  sht.setAccuracy(SHTSensor::SHT_ACCURACY_MEDIUM);
+
+  display.begin();
+  display.clear();
+  display.setFixedFont(ssd1306xled_font6x8);
+
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(BRIGHTNESS);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  FastLED.show();
+
+  pinMode(PIR_VCC, OUTPUT);
+  digitalWrite(PIR_VCC, HIGH);
+  pinMode(PIR_PIN, INPUT);
+}
+
+void loop() {
+  if (digitalRead(PIR_PIN)) {
+    myservo.attach(SERVO_PIN);
+    setColor(0, 0, BRIGHTNESS);
+
+    sht.readSample();
+    float temperature = sht.getTemperature();
+    float humidity = sht.getHumidity();
+
+    Serial.print("Temp: ");
+    Serial.print(temperature);
+    Serial.print(" °C | Hum: ");
+    Serial.println(humidity);
+
+    display.clear();
+    char ligne1[32], ligne2[32];
+    snprintf(ligne1, sizeof(ligne1), "Temperature: %02d C", (int)temperature);
+    snprintf(ligne2, sizeof(ligne2), "Humidite: %02d %%", (int)humidity);
+    display.printFixed(0, 10, ligne1, STYLE_BOLD);
+    display.printFixed(0, 25, ligne2, STYLE_BOLD);
+
+    // ⏰ Affichage heure approximative
+    showClock(millis());
+
+    uint8_t couleur = map(temperature, 20, 35, 170, 0);
+    fill_solid(leds, NUM_LEDS, ColorFromPalette(RainbowColors_p, couleur, BRIGHTNESS, LINEARBLEND));
+    FastLED.show();
+
+    if (temperature > 10) {
+      for (int i = 0; i <= 90; i += 5) {
+        myservo.write(i);
+        delay(100);
+      }
+      for (int i = 90; i >= 0; i -= 5) {
+        myservo.write(i);
+        delay(100);
+      }
+    } else {
+      myservo.write(0);
+    }
+
+  } else {
+    myservo.detach();
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
+    display.clear();
+  }
+
+  delay(500);
+}
