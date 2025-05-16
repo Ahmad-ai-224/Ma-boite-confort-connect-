@@ -1,0 +1,113 @@
+#include "lcdgfx.h"
+#include <Wire.h>
+#include "SHTSensor.h"
+#include <FastLED.h>
+#include <Servo.h>
+
+// === Définition des constantes ===
+#define LED_PIN     4
+#define NUM_LEDS    21
+#define BRIGHTNESS  64
+#define COLOR_ORDER GRB
+#define LED_TYPE    WS2811
+#define PIR_PIN     A3       // Capteur PIR
+#define PIR_VCC     A2       // Alimentation PIR (optionnel)
+#define SERVO_PIN   A1       // Servomoteur
+
+// === Objets ===
+CRGB leds[NUM_LEDS];
+SHTSensor sht;
+DisplaySSD1306_128x64_I2C display(-1);
+Servo myservo;
+
+void setColor(int redValue, int greenValue, int blueValue) {
+  fill_solid(leds, NUM_LEDS, CRGB(redValue, greenValue, blueValue));
+  FastLED.show();
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+
+  // === Initialisation capteur SHT ===
+  if (!sht.init()) {
+    Serial.println("Erreur capteur SHT");
+    while (1);
+  }
+  sht.setAccuracy(SHTSensor::SHT_ACCURACY_MEDIUM);
+
+  // === Initialisation écran OLED ===
+  display.begin();
+  display.clear();
+  display.setFixedFont(ssd1306xled_font6x8);
+
+  // === Initialisation LEDs ===
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(BRIGHTNESS);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  FastLED.show();
+
+  // === Servo moteur ===
+  myservo.attach(SERVO_PIN);
+  myservo.write(0); // position initiale
+
+  // === Capteur PIR ===
+  pinMode(PIR_VCC, OUTPUT);
+  digitalWrite(PIR_VCC, HIGH); // Alimente le PIR
+  pinMode(PIR_PIN, INPUT);
+}
+
+void loop() {
+  if (digitalRead(PIR_PIN)) {
+    // === Présence détectée ===
+    setColor(0, 0, BRIGHTNESS); // Bleu
+
+    // Lecture température/humidité
+    sht.readSample();
+    float temperature = sht.getTemperature();
+    float humidity = sht.getHumidity();
+
+    Serial.print("Temp: ");
+    Serial.print(temperature);
+    Serial.print(" °C | Hum: ");
+    Serial.println(humidity);
+
+    // Affichage OLED
+    display.clear();
+    char ligne1[32];
+    char ligne2[32];
+    snprintf(ligne1, sizeof(ligne1), "Temperature: %02d C", (int)temperature);
+    snprintf(ligne2, sizeof(ligne2), "Humidite: %02d %%", (int)humidity);
+    display.printFixed(0, 10, ligne1, STYLE_BOLD);
+    display.printFixed(0, 25, ligne2, STYLE_BOLD);
+
+    // LEDs : couleur selon température
+    uint8_t couleur = map(temperature, 20, 35, 170, 0);
+    fill_solid(leds, NUM_LEDS, ColorFromPalette(RainbowColors_p, couleur, BRIGHTNESS, LINEARBLEND));
+    FastLED.show();
+
+    // 🧊 Condition : si température > 10°C, faire osciller le servo
+    if (temperature > 10) {
+      for (int i = 0; i <= 90; i += 5) {
+        myservo.write(i);
+        delay(100);
+      }
+      for (int i = 90; i >= 0; i -= 5) {
+        myservo.write(i);
+        delay(100);
+      }
+    } else {
+      myservo.write(0);  // Sinon on s’assure qu’il reste immobile
+    }
+
+  } else {
+    // === Aucune présence détectée ===
+    setColor(BRIGHTNESS, 0, 0); // Rouge
+    myservo.write(0);
+    display.clear();
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
+  }
+
+  delay(500);
+}
