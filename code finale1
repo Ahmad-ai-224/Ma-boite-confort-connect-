@@ -81,14 +81,14 @@ void loop() {
     display.printFixed(0, 10, ligne1, STYLE_BOLD);
     display.printFixed(0, 25, ligne2, STYLE_BOLD);
 
-    // ⏰ Affichage heure approximative
+    //  Affichage heure approximative
     showClock(millis());
 
     uint8_t couleur = map(temperature, 20, 35, 170, 0);
     fill_solid(leds, NUM_LEDS, ColorFromPalette(RainbowColors_p, couleur, BRIGHTNESS, LINEARBLEND));
     FastLED.show();
 
-    if (temperature > 10) {
+    if (temperature > 25) {
       for (int i = 0; i <= 90; i += 5) {
         myservo.write(i);
         delay(100);
