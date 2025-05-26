@@ -5,7 +5,7 @@
 - Modélisation 3D optimisée sur *TinkerCad*  
   >  Une seconde version a été réalisée par Amadou et Nadia
 
-- Conception de chaque pièce via *Inkscape*
+- Conception de chaque pièce via *Inkscape* pour conception laser
 
 - Construction et assemblage de la boîte  
   > Inclut l’achat des fournitures nécessaires
