@@ -11,3 +11,4 @@
 ## 🧱 Conception et fabrication de la boîte
 - 📐 **Projet de boîte 3D** : J’ai travaillé **avec Thierno Diallo** sur la modélisation d’une boîte 3D pour accueillir les composants. Cependant, les dimensions étaient trop grandes pour notre imprimante 3D.
 
+✂️ **Boîte finale** : Assemblage de derniere partie d’une boîte découpée au laser. Installation et fixation du LED, du servomoteur et du capteur PIR, avec finalisation de l’intégration matérielle.
