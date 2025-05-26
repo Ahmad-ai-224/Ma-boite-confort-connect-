@@ -10,6 +10,8 @@
 - Construction et assemblage de la boîte  
   > Inclut l’achat des fournitures nécessaires
 
+- Ajout et programmation des boutons annulé car trop difficile a realisé
+
 ---
 
 ### 📝 Documents & Outils de Suivi :
